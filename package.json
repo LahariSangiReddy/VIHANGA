@@ -1,0 +1,22 @@
+{
+  "name": "agent-spend-policy-engine",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w @agent-spend/api\" \"npm run dev -w @agent-spend/web\"",
+    "dev:api": "npm run dev -w @agent-spend/api",
+    "dev:web": "npm run dev -w @agent-spend/web",
+    "build": "npm run build -w @agent-spend/api && npm run build -w @agent-spend/web",
+    "test": "npm run test -w @agent-spend/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "@x402/avm": "^2.21.0",
+    "algosdk": "^3.6.0"
+  }
+}
