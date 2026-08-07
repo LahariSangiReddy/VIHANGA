@@ -35,4 +35,5 @@ PolicyPay is an AI Agent Spend Policy Engine that authorizes, limits, monitors, 
 
 ## Built For
 
-BlockHack 2026
+AlgoRand BlockHack 2026-KLH UNIVERSITY
+
