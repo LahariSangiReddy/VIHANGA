@@ -5,6 +5,7 @@ import { z } from "zod";
 import { config } from "dotenv";
 import { evaluateSpendPolicy, type SpendPolicy } from "@agent-spend/policy";
 import { db, recordAudit } from "./db.js";
+import { calculateAgentRiskScore } from "./risk.js";
 import { paymentMiddleware, x402ResourceServer } from "@x402/hono";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import type { RoutesConfig } from "@x402/core/server";
@@ -47,8 +48,9 @@ function policyFor(agentId: string) {
   if (!row) return null;
   return { id: row.id, agentId: row.agent_id, maxPerTransactionMicros: row.max_transaction_micros, dailyLimitMicros: row.daily_limit_micros, monthlyLimitMicros: row.monthly_limit_micros, autoApproveBelowMicros: row.auto_approve_micros, allowedCategories: JSON.parse(row.allowed_categories) } satisfies SpendPolicy;
 }
-function committed(agentId: string) {
-  const row = db.prepare("SELECT COALESCE(SUM(amount_micros), 0) as spent FROM payment_requests WHERE agent_id = ? AND status = 'APPROVED'").get(agentId) as { spent: number };
+function committed(agentId: string, window?: "day" | "month") {
+  const cutoff = window === "day" ? " AND created_at >= datetime('now', '-1 day')" : window === "month" ? " AND created_at >= datetime('now', '-30 days')" : "";
+  const row = db.prepare(`SELECT COALESCE(SUM(amount_micros), 0) as spent FROM payment_requests WHERE agent_id = ? AND x402_status = 'SETTLED'${cutoff}`).get(agentId) as { spent: number };
   return row.spent;
 }
 app.get("/api/dashboard", (c) => {
@@ -60,8 +62,19 @@ app.get("/api/dashboard", (c) => {
   return c.json({ agent: { id: agent.id, name: agent.name, status: agent.status }, budget: money(agent.budget_micros), spent: money(spent), remaining: money(agent.budget_micros - spent), approved: countFor("APPROVED"), blocked: countFor("BLOCKED"), pending: countFor("REQUIRES_APPROVAL"), requests });
 });
 app.get("/api/agents", c => c.json(db.prepare("SELECT id,name,wallet_address,status,budget_micros FROM agents").all()));
+app.get("/api/agents/:id/risk", c => {
+  const risk = calculateAgentRiskScore(c.req.param("id"));
+  return risk ? c.json(risk) : c.json({ error: "Agent not found." }, 404);
+});
 app.get("/api/policies/:agentId", c => c.json(policyFor(c.req.param("agentId"))));
-app.get("/api/audit", c => c.json(db.prepare("SELECT * FROM audit_events ORDER BY id DESC LIMIT 100").all()));
+app.get("/api/audit", c => c.json(db.prepare(`
+  SELECT id, request_id, event_type, detail, created_at,
+    CASE WHEN length(previous_hash) > 64 THEN substr(previous_hash, 1, 64) || '…[legacy truncated]' ELSE previous_hash END AS previous_hash,
+    CASE WHEN length(event_hash) > 64 THEN substr(event_hash, 1, 64) || '…[legacy truncated]' ELSE event_hash END AS event_hash
+  FROM audit_events
+  ORDER BY id DESC
+  LIMIT 100
+`).all()));
 app.get("/api/requests", c => c.json(db.prepare("SELECT * FROM payment_requests ORDER BY created_at DESC").all()));
 app.get("/demo/weather", c => c.json({ city: "Bengaluru", condition: "clear", temperatureC: 28, source: "local-x402-demo" }));
 app.get("/demo/data", c => c.json({ records: 42, dataset: "agent-spend-sample", source: "local-x402-demo" }));
@@ -74,8 +87,9 @@ app.post("/api/payment-requests", async c => {
   const agent = db.prepare("SELECT * FROM agents WHERE id = ?").get(input.agentId) as any;
   if (!agent || agent.status !== "ACTIVE") return c.json({ error: "Agent is not active." }, 400);
   const policy = policyFor(input.agentId)!;
-  const spent = committed(input.agentId);
-  const result = evaluateSpendPolicy({ ...input, amountMicros: Math.round(input.amount * 1_000_000) }, { policy, dailySpentMicros: spent, monthlySpentMicros: spent, remainingBudgetMicros: agent.budget_micros - spent });
+  const dailySpent = committed(input.agentId, "day");
+  const monthlySpent = committed(input.agentId, "month");
+  const result = evaluateSpendPolicy({ ...input, amountMicros: Math.round(input.amount * 1_000_000) }, { policy, dailySpentMicros: dailySpent, monthlySpentMicros: monthlySpent, remainingBudgetMicros: agent.budget_micros - monthlySpent });
   const requestId = id(); const createdAt = new Date().toISOString();
   db.prepare("INSERT INTO payment_requests VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(requestId, input.agentId, input.service, input.category, Math.round(input.amount * 1_000_000), result.decision, result.reason, result.policyId, result.decision, "NOT_ATTEMPTED", "algorand:testnet", null, createdAt);
   recordAudit(requestId, "POLICY_EVALUATED", `${result.decision}: ${result.reason}`);

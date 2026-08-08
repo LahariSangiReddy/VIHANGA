@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "test": "tsx src/policy.test.ts"
+    "test": "tsx src/policy.test.ts && tsx src/risk.test.ts"
   },
   "dependencies": {
     "@agent-spend/policy": "*",
