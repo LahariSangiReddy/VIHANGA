@@ -1,39 +1,77 @@
 # PolicyPay
 
-**AI Spend Governance with x402 & Algorand**
+## AI Agent Spend Governance with x402 + Algorand
 
-## Overview
+PolicyPay is a spending governance layer for autonomous AI agents.
 
-PolicyPay is an AI Agent Spend Policy Engine that authorizes, limits, monitors, and audits autonomous AI spending before blockchain settlement.
+It allows AI agents to request paid APIs while enforcing spending limits,
+service/category policies, human approval requirements, and risk controls.
 
-## Features
+Approved requests proceed through x402 for machine-to-machine payment,
+with TestNet USDC settled on Algorand TestNet. Settlement transaction
+details are recorded in the PolicyPay audit trail.
 
-- Policy-based spending authorization
-- Budget enforcement
-- Human approval workflow
-- x402 payment integration
-- Algorand TestNet settlement
-- Immutable audit logging
-- React dashboard
+---
 
-## Tech Stack
+## 🚀 Features
 
+- Policy-based AI spending control
+- Daily and monthly spending limits
+- Automatic approval for permitted requests
+- Human-in-the-loop approval for sensitive requests
+- Blocking of unauthorized requests before payment
+- Deterministic Agent Risk Score
+- Agent Passport with wallet, budget and activity information
+- Real x402 payment integration
+- TestNet USDC payments
+- Real Algorand TestNet settlement
+- Append-only audit trail
+- Dashboard for spending, approvals, risk and settlement activity
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
 - React
 - TypeScript
 - Vite
+- CSS
+
+### Backend
 - Hono
+- TypeScript
 - SQLite
-- x402
+- Node.js
+
+### Blockchain
+- Algorand
 - Algorand TestNet
-- USDC ASA
+- TestNet USDC
+- algosdk
 
-## Demo Scenarios
+### Payment Protocol
+- x402
+- @x402/core
+- @x402/hono
+- @x402/fetch
+- @x402/avm
 
-- Weather API → Approved → Settled
-- Data API → Requires Approval → Approved → Settled
-- Premium Research API → Blocked → No Payment Attempted
+---
 
-## Built For
+## ⚙️ Setup
 
-AlgoRand BlockHack 2026-KLH UNIVERSITY
+### Prerequisites
 
+- Node.js
+- npm
+- Algorand TestNet account
+- TestNet ALGO
+- TestNet USDC
+- x402 facilitator configuration
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/LahariSangiReddy/VIHANGA.git
+cd VIHANGA
